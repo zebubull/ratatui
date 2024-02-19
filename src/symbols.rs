@@ -236,7 +236,10 @@ pub mod line {
 }
 
 pub mod border {
+    use bitflags::bitflags;
+
     use super::line;
+    use crate::widgets::Borders;
 
     #[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]
     pub struct Set {
@@ -248,6 +251,58 @@ pub mod border {
         pub vertical_right: &'static str,
         pub horizontal_top: &'static str,
         pub horizontal_bottom: &'static str,
+        pub vertical_t_left: &'static str,
+        pub vertical_t_right: &'static str,
+        pub horizontal_t_down: &'static str,
+        pub horizontal_t_up: &'static str,
+        pub cross: &'static str,
+    }
+
+    impl Set {
+        pub(crate) fn line_parts_from_symbol(&self, symbol: &str) -> Option<LineParts> {
+            if symbol == self.horizontal_top || symbol == self.horizontal_bottom {
+                Some(LineParts::HORIZONTAL)
+            } else if symbol == self.vertical_left || symbol == self.vertical_right {
+                Some(LineParts::VERTICAL)
+            } else if symbol == self.cross {
+                Some(LineParts::ALL)
+            } else if symbol == self.horizontal_t_up {
+                Some(LineParts::HORIZONTAL_UP)
+            } else if symbol == self.horizontal_t_down {
+                Some(LineParts::HORIZONTAL_DOWN)
+            } else if symbol == self.vertical_t_left {
+                Some(LineParts::VERTICAL_LEFT)
+            } else if symbol == self.vertical_t_right {
+                Some(LineParts::VERTICAL_RIGHT)
+            } else if symbol == self.bottom_right {
+                Some(LineParts::BOTTOM_RIGHT)
+            } else if symbol == self.bottom_left {
+                Some(LineParts::BOTTOM_LEFT)
+            } else if symbol == self.top_right {
+                Some(LineParts::TOP_RIGHT)
+            } else if symbol == self.top_left {
+                Some(LineParts::TOP_LEFT)
+            } else {
+                None
+            }
+        }
+
+        pub(crate) fn symbol_from_line_parts(&self, parts: LineParts) -> &'static str {
+            match parts {
+                LineParts::ALL => self.cross,
+                LineParts::HORIZONTAL_UP => self.horizontal_t_up,
+                LineParts::HORIZONTAL_DOWN => self.horizontal_t_down,
+                LineParts::VERTICAL_LEFT => self.vertical_t_left,
+                LineParts::VERTICAL_RIGHT => self.vertical_t_right,
+                LineParts::BOTTOM_RIGHT => self.bottom_right,
+                LineParts::BOTTOM_LEFT => self.bottom_left,
+                LineParts::TOP_RIGHT => self.top_right,
+                LineParts::TOP_LEFT => self.top_left,
+                LineParts::HORIZONTAL => self.horizontal_top,
+                LineParts::VERTICAL => self.vertical_left,
+                _ => panic!("Failed to construct border symbol"),
+            }
+        }
     }
 
     impl Default for Set {
@@ -272,6 +327,11 @@ pub mod border {
         vertical_right: line::NORMAL.vertical,
         horizontal_top: line::NORMAL.horizontal,
         horizontal_bottom: line::NORMAL.horizontal,
+        vertical_t_left: line::NORMAL.vertical_left,
+        vertical_t_right: line::NORMAL.vertical_right,
+        horizontal_t_down: line::NORMAL.horizontal_down,
+        horizontal_t_up: line::NORMAL.horizontal_up,
+        cross: line::NORMAL.cross,
     };
 
     /// Border Set with a single line width and rounded corners
@@ -290,6 +350,11 @@ pub mod border {
         vertical_right: line::ROUNDED.vertical,
         horizontal_top: line::ROUNDED.horizontal,
         horizontal_bottom: line::ROUNDED.horizontal,
+        vertical_t_left: line::ROUNDED.vertical_left,
+        vertical_t_right: line::ROUNDED.vertical_right,
+        horizontal_t_down: line::ROUNDED.horizontal_down,
+        horizontal_t_up: line::ROUNDED.horizontal_up,
+        cross: line::ROUNDED.cross,
     };
 
     /// Border Set with a double line width
@@ -308,6 +373,11 @@ pub mod border {
         vertical_right: line::DOUBLE.vertical,
         horizontal_top: line::DOUBLE.horizontal,
         horizontal_bottom: line::DOUBLE.horizontal,
+        vertical_t_left: line::DOUBLE.vertical_left,
+        vertical_t_right: line::DOUBLE.vertical_right,
+        horizontal_t_down: line::DOUBLE.horizontal_down,
+        horizontal_t_up: line::DOUBLE.horizontal_up,
+        cross: line::DOUBLE.cross,
     };
 
     /// Border Set with a thick line width
@@ -326,6 +396,11 @@ pub mod border {
         vertical_right: line::THICK.vertical,
         horizontal_top: line::THICK.horizontal,
         horizontal_bottom: line::THICK.horizontal,
+        vertical_t_left: line::THICK.vertical_left,
+        vertical_t_right: line::THICK.vertical_right,
+        horizontal_t_down: line::THICK.horizontal_down,
+        horizontal_t_up: line::THICK.horizontal_up,
+        cross: line::THICK.cross,
     };
 
     pub const QUADRANT_TOP_LEFT: &str = "▘";
@@ -361,6 +436,11 @@ pub mod border {
         vertical_right: QUADRANT_RIGHT_HALF,
         horizontal_top: QUADRANT_TOP_HALF,
         horizontal_bottom: QUADRANT_BOTTOM_HALF,
+        vertical_t_left: QUADRANT_BLOCK,
+        vertical_t_right: QUADRANT_BLOCK,
+        horizontal_t_down: QUADRANT_BLOCK,
+        horizontal_t_up: QUADRANT_BLOCK,
+        cross: QUADRANT_BLOCK,
     };
 
     /// Quadrant used for setting a border inside a block by one half cell "pixel".
@@ -380,6 +460,11 @@ pub mod border {
         vertical_right: QUADRANT_LEFT_HALF,
         horizontal_top: QUADRANT_BOTTOM_HALF,
         horizontal_bottom: QUADRANT_TOP_HALF,
+        vertical_t_left: QUADRANT_BLOCK,
+        vertical_t_right: QUADRANT_BLOCK,
+        horizontal_t_down: QUADRANT_BLOCK,
+        horizontal_t_up: QUADRANT_BLOCK,
+        cross: QUADRANT_BLOCK,
     };
 
     pub const ONE_EIGHTH_TOP_EIGHT: &str = "▔";
@@ -404,6 +489,11 @@ pub mod border {
         vertical_right: ONE_EIGHTH_RIGHT_EIGHT,
         horizontal_top: ONE_EIGHTH_BOTTOM_EIGHT,
         horizontal_bottom: ONE_EIGHTH_TOP_EIGHT,
+        vertical_t_left: QUADRANT_BLOCK,
+        vertical_t_right: QUADRANT_BLOCK,
+        horizontal_t_down: QUADRANT_BLOCK,
+        horizontal_t_up: QUADRANT_BLOCK,
+        cross: QUADRANT_BLOCK,
     };
 
     /// Tall border set based on McGugan box technique
@@ -423,6 +513,11 @@ pub mod border {
         vertical_right: ONE_EIGHTH_LEFT_EIGHT,
         horizontal_top: ONE_EIGHTH_TOP_EIGHT,
         horizontal_bottom: ONE_EIGHTH_BOTTOM_EIGHT,
+        vertical_t_left: QUADRANT_BLOCK,
+        vertical_t_right: QUADRANT_BLOCK,
+        horizontal_t_down: QUADRANT_BLOCK,
+        horizontal_t_up: QUADRANT_BLOCK,
+        cross: QUADRANT_BLOCK,
     };
 
     /// Wide proportional (visually equal width and height) border with using set of quadrants.
@@ -445,6 +540,11 @@ pub mod border {
         vertical_right: QUADRANT_BLOCK,
         horizontal_top: QUADRANT_BOTTOM_HALF,
         horizontal_bottom: QUADRANT_TOP_HALF,
+        vertical_t_left: QUADRANT_BLOCK,
+        vertical_t_right: QUADRANT_BLOCK,
+        horizontal_t_down: QUADRANT_BLOCK,
+        horizontal_t_up: QUADRANT_BLOCK,
+        cross: QUADRANT_BLOCK,
     };
 
     /// Tall proportional (visually equal width and height) border with using set of quadrants.
@@ -467,7 +567,68 @@ pub mod border {
         vertical_right: QUADRANT_BLOCK,
         horizontal_top: QUADRANT_TOP_HALF,
         horizontal_bottom: QUADRANT_BOTTOM_HALF,
+        vertical_t_left: QUADRANT_BLOCK,
+        vertical_t_right: QUADRANT_BLOCK,
+        horizontal_t_down: QUADRANT_BLOCK,
+        horizontal_t_up: QUADRANT_BLOCK,
+        cross: QUADRANT_BLOCK,
     };
+
+    bitflags! {
+        /// Bitflags that represent the different parts of a border line.
+        #[derive(Default, Clone, Copy, Eq, PartialEq, Hash)]
+        pub(crate) struct LineParts: u8 {
+            const NONE   = 0b0000;
+            const LEFT   = 0b0001;
+            const RIGHT  = 0b0010;
+            const TOP    = 0b0100;
+            const BOTTOM = 0b1000;
+            const ALL    = 0b1111;
+
+            const HORIZONTAL      = Self::LEFT.bits() | Self::RIGHT.bits();
+            const HORIZONTAL_UP   = Self::LEFT.bits() | Self::RIGHT.bits() | Self::TOP.bits();
+            const HORIZONTAL_DOWN = Self::LEFT.bits() | Self::RIGHT.bits() | Self::BOTTOM.bits();
+
+            const VERTICAL       = Self::BOTTOM.bits() | Self::TOP.bits();
+            const VERTICAL_LEFT  = Self::BOTTOM.bits() | Self::TOP.bits() | Self::LEFT.bits();
+            const VERTICAL_RIGHT = Self::BOTTOM.bits() | Self::TOP.bits() | Self::RIGHT.bits();
+
+            // The corresponding symbols to these parts refer to location and not active
+            // segments i.e. top right "┓" has the bottom and left segments set.
+            const BOTTOM_LEFT  = Self::TOP.bits()    | Self::RIGHT.bits();
+            const BOTTOM_RIGHT = Self::TOP.bits()    | Self::LEFT.bits();
+            const TOP_LEFT     = Self::BOTTOM.bits() | Self::RIGHT.bits();
+            const TOP_RIGHT    = Self::BOTTOM.bits() | Self::LEFT.bits();
+        }
+    }
+
+    impl From<Borders> for LineParts {
+        /// Calculate the line parts needed to make a corner symbol for the given border corner.
+        fn from(value: Borders) -> Self {
+            // Each border corner requires the opposite line part to be set.
+            // E.g if merging the left border the right side will be set
+            // and "┃" will become "┣".
+            let mut parts = LineParts::NONE;
+
+            if value.intersects(Borders::LEFT) {
+                parts |= LineParts::RIGHT;
+            }
+
+            if value.intersects(Borders::RIGHT) {
+                parts |= LineParts::LEFT;
+            }
+
+            if value.intersects(Borders::TOP) {
+                parts |= LineParts::BOTTOM;
+            }
+
+            if value.intersects(Borders::BOTTOM) {
+                parts |= LineParts::TOP;
+            }
+
+            parts
+        }
+    }
 }
 
 pub const DOT: &str = "•";

@@ -16,6 +16,8 @@ pub mod title;
 pub use padding::Padding;
 pub use title::{Position, Title};
 
+use self::symbols::border::LineParts;
+
 /// Base widget to be used to display a box border around all [upper level ones](crate::widgets).
 ///
 /// The borders can be configured with [`Block::borders`] and others. A block can have multiple
@@ -72,6 +74,8 @@ pub struct Block<'a> {
     titles_position: Position,
     /// Visible borders
     borders: Borders,
+    /// Borders to merge with neighboring blocks
+    merge_borders: Borders,
     /// Border style
     border_style: Style,
     /// The symbols used to render the border. The default is plain lines but one can choose to
@@ -165,6 +169,7 @@ impl<'a> Block<'a> {
             titles_alignment: Alignment::Left,
             titles_position: Position::Top,
             borders: Borders::NONE,
+            merge_borders: Borders::NONE,
             border_style: Style::new(),
             border_set: BorderType::Plain.to_border_set(),
             style: Style::new(),
@@ -470,6 +475,28 @@ impl<'a> Block<'a> {
         self
     }
 
+    /// Sets which borders will be merged with those of neighboring [`Block`]s.
+    ///
+    /// This will only work correctly if the neighboring block has the same border set. Merging
+    /// borders [`BorderType::QuadrantInside`] or [`BorderType::QuadrantOutside`] may produce
+    /// undesired results due to the merging algorithm being unable to detect the correct
+    /// junction symbol.
+    ///
+    /// # Examples
+    /// ```
+    /// # use ratatui::{prelude::*, widgets::*};
+    /// Block::default().title("Block 1").borders(Borders::ALL);
+    /// Block::default().title("Block 2").borders(Borders::ALL).merge_with(Borders::LEFT);
+    /// // Renders
+    /// // ┌Block─1┬Block─2┐
+    /// // │       │       │
+    /// // └───────┴───────┘
+    #[must_use = "method moves the value of self and returns the modified value"]
+    pub const fn merge_with(mut self, borders: Borders) -> Block<'a> {
+        self.merge_borders = borders;
+        self
+    }
+
     /// Compute the inner area of a block based on its border visibility rules.
     ///
     /// # Examples
@@ -595,7 +622,7 @@ impl Widget for Block<'_> {
 
 impl WidgetRef for Block<'_> {
     fn render_ref(&self, area: Rect, buf: &mut Buffer) {
-        let area = area.intersection(buf.area);
+        let area = self.calculate_rect_with_merges(area).intersection(buf.area);
         if area.is_empty() {
             return;
         }
@@ -607,10 +634,15 @@ impl WidgetRef for Block<'_> {
 
 impl Block<'_> {
     fn render_borders(&self, area: Rect, buf: &mut Buffer) {
-        self.render_left_side(area, buf);
-        self.render_top_side(area, buf);
-        self.render_right_side(area, buf);
-        self.render_bottom_side(area, buf);
+        // Adjust the border rects to avoid drawing over corners if merging. This allows
+        // scrollbars to render correctly.
+        let horizontal_border_rect = self.calculate_horizontal_border_rect(area);
+        let vertical_border_rect = self.calculate_vertical_border_rect(area);
+
+        self.render_left_side(vertical_border_rect, buf);
+        self.render_top_side(horizontal_border_rect, buf);
+        self.render_right_side(vertical_border_rect, buf);
+        self.render_bottom_side(horizontal_border_rect, buf);
 
         self.render_bottom_right_corner(buf, area);
         self.render_top_right_corner(buf, area);
@@ -630,8 +662,63 @@ impl Block<'_> {
         self.render_left_titles(position, area, buf);
     }
 
+    /// Compensate for merging borders in the rect.
+    ///
+    /// This will grow the rect towards any merged borders to reclaim the space gained
+    /// from not having to draw those borders.
+    fn calculate_rect_with_merges(&self, area: Rect) -> Rect {
+        let mut rect = area;
+        if self.merge_borders.intersects(Borders::LEFT) {
+            rect.x = rect.x.saturating_sub(1);
+            rect.width += 1;
+        }
+        if self.merge_borders.intersects(Borders::RIGHT) {
+            rect.width += 1;
+        }
+        if self.merge_borders.intersects(Borders::TOP) {
+            rect.y = rect.y.saturating_sub(1);
+            rect.height += 1;
+        }
+        if self.merge_borders.intersects(Borders::BOTTOM) {
+            rect.height += 1;
+        }
+        rect
+    }
+
+    /// Compensate for vertical merging borders in the rect for border drawing.
+    ///
+    /// This should be done to the rect used to draw the left and right borders to ensure that
+    /// merging will not overwrite any existing scrollbars.
+    fn calculate_vertical_border_rect(&self, area: Rect) -> Rect {
+        let mut rect = area;
+        if self.merge_borders.intersects(Borders::TOP) {
+            rect.y += 1;
+            rect.height -= 1;
+        }
+        if self.merge_borders.intersects(Borders::BOTTOM) {
+            rect.height -= 1;
+        }
+        rect
+    }
+
+    /// Compensate for horizontal merging borders in the rect for border drawing.
+    ///
+    /// This should be done to the rect used to draw the top and bottom borders to ensure that
+    /// merging will not overwrite any existing scrollbars.
+    fn calculate_horizontal_border_rect(&self, area: Rect) -> Rect {
+        let mut rect = area;
+        if self.merge_borders.intersects(Borders::LEFT) {
+            rect.x += 1;
+            rect.width -= 1;
+        }
+        if self.merge_borders.intersects(Borders::RIGHT) {
+            rect.width -= 1;
+        }
+        rect
+    }
+
     fn render_left_side(&self, area: Rect, buf: &mut Buffer) {
-        if self.borders.contains(Borders::LEFT) {
+        if self.borders.contains(Borders::LEFT) && !self.merge_borders.contains(Borders::LEFT) {
             for y in area.top()..area.bottom() {
                 buf.get_mut(area.left(), y)
                     .set_symbol(self.border_set.vertical_left)
@@ -641,7 +728,7 @@ impl Block<'_> {
     }
 
     fn render_top_side(&self, area: Rect, buf: &mut Buffer) {
-        if self.borders.contains(Borders::TOP) {
+        if self.borders.contains(Borders::TOP) && !self.merge_borders.contains(Borders::TOP) {
             for x in area.left()..area.right() {
                 buf.get_mut(x, area.top())
                     .set_symbol(self.border_set.horizontal_top)
@@ -651,7 +738,7 @@ impl Block<'_> {
     }
 
     fn render_right_side(&self, area: Rect, buf: &mut Buffer) {
-        if self.borders.contains(Borders::RIGHT) {
+        if self.borders.contains(Borders::RIGHT) && !self.merge_borders.contains(Borders::RIGHT) {
             let x = area.right() - 1;
             for y in area.top()..area.bottom() {
                 buf.get_mut(x, y)
@@ -662,7 +749,7 @@ impl Block<'_> {
     }
 
     fn render_bottom_side(&self, area: Rect, buf: &mut Buffer) {
-        if self.borders.contains(Borders::BOTTOM) {
+        if self.borders.contains(Borders::BOTTOM) && !self.merge_borders.contains(Borders::BOTTOM) {
             let y = area.bottom() - 1;
             for x in area.left()..area.right() {
                 buf.get_mut(x, y)
@@ -673,7 +760,22 @@ impl Block<'_> {
     }
 
     fn render_bottom_right_corner(&self, buf: &mut Buffer, area: Rect) {
-        if self.borders.contains(Borders::RIGHT | Borders::BOTTOM) {
+        // If we are merging this corner, then instead of drawing the default corner,
+        // fuse the two corners into a t-piece or cross. If merging and the corner is
+        // not a border (i.e. it is a scrollbar arrow) then do not draw the corner.
+        let merge_targets = self
+            .merge_borders
+            .intersection(Borders::RIGHT | Borders::BOTTOM);
+        if !merge_targets.is_empty() {
+            let corner_cell = buf.get_mut(area.right() - 1, area.bottom() - 1);
+            let current_parts = self.border_set.line_parts_from_symbol(corner_cell.symbol());
+            if let Some(current_parts) = current_parts {
+                let target_parts = current_parts | LineParts::from(merge_targets);
+                corner_cell
+                    .set_symbol(self.border_set.symbol_from_line_parts(target_parts))
+                    .set_style(self.border_style);
+            }
+        } else if self.borders.contains(Borders::RIGHT | Borders::BOTTOM) {
             buf.get_mut(area.right() - 1, area.bottom() - 1)
                 .set_symbol(self.border_set.bottom_right)
                 .set_style(self.border_style);
@@ -681,7 +783,19 @@ impl Block<'_> {
     }
 
     fn render_top_right_corner(&self, buf: &mut Buffer, area: Rect) {
-        if self.borders.contains(Borders::RIGHT | Borders::TOP) {
+        let merge_targets = self
+            .merge_borders
+            .intersection(Borders::RIGHT | Borders::TOP);
+        if !merge_targets.is_empty() {
+            let corner_cell = buf.get_mut(area.right() - 1, area.top());
+            let current_parts = self.border_set.line_parts_from_symbol(corner_cell.symbol());
+            if let Some(current_parts) = current_parts {
+                let target_parts = current_parts | LineParts::from(merge_targets);
+                corner_cell
+                    .set_symbol(self.border_set.symbol_from_line_parts(target_parts))
+                    .set_style(self.border_style);
+            }
+        } else if self.borders.contains(Borders::RIGHT | Borders::TOP) {
             buf.get_mut(area.right() - 1, area.top())
                 .set_symbol(self.border_set.top_right)
                 .set_style(self.border_style);
@@ -689,7 +803,19 @@ impl Block<'_> {
     }
 
     fn render_bottom_left_corner(&self, buf: &mut Buffer, area: Rect) {
-        if self.borders.contains(Borders::LEFT | Borders::BOTTOM) {
+        let merge_targets = self
+            .merge_borders
+            .intersection(Borders::LEFT | Borders::BOTTOM);
+        if !merge_targets.is_empty() {
+            let corner_cell = buf.get_mut(area.left(), area.bottom() - 1);
+            let current_parts = self.border_set.line_parts_from_symbol(corner_cell.symbol());
+            if let Some(current_parts) = current_parts {
+                let target_parts = current_parts | LineParts::from(merge_targets);
+                corner_cell
+                    .set_symbol(self.border_set.symbol_from_line_parts(target_parts))
+                    .set_style(self.border_style);
+            }
+        } else if self.borders.contains(Borders::LEFT | Borders::BOTTOM) {
             buf.get_mut(area.left(), area.bottom() - 1)
                 .set_symbol(self.border_set.bottom_left)
                 .set_style(self.border_style);
@@ -697,7 +823,19 @@ impl Block<'_> {
     }
 
     fn render_top_left_corner(&self, buf: &mut Buffer, area: Rect) {
-        if self.borders.contains(Borders::LEFT | Borders::TOP) {
+        let merge_targets = self
+            .merge_borders
+            .intersection(Borders::LEFT | Borders::TOP);
+        if !merge_targets.is_empty() {
+            let corner_cell = buf.get_mut(area.left(), area.top());
+            let current_parts = self.border_set.line_parts_from_symbol(corner_cell.symbol());
+            if let Some(current_parts) = current_parts {
+                let target_parts = current_parts | LineParts::from(merge_targets);
+                corner_cell
+                    .set_symbol(self.border_set.symbol_from_line_parts(target_parts))
+                    .set_style(self.border_style);
+            }
+        } else if self.borders.contains(Borders::LEFT | Borders::TOP) {
             buf.get_mut(area.left(), area.top())
                 .set_symbol(self.border_set.top_left)
                 .set_style(self.border_style);
@@ -1121,6 +1259,7 @@ mod tests {
                 titles_alignment: Alignment::Left,
                 titles_position: Position::Top,
                 borders: Borders::NONE,
+                merge_borders: Borders::NONE,
                 border_style: Style::new(),
                 border_set: BorderType::Plain.to_border_set(),
                 style: Style::new(),
@@ -1510,6 +1649,11 @@ mod tests {
                 vertical_right: "R",
                 horizontal_top: "T",
                 horizontal_bottom: "B",
+                vertical_t_left: " ",
+                vertical_t_right: " ",
+                horizontal_t_down: " ",
+                horizontal_t_up: " ",
+                cross: " ",
             })
             .render(buffer.area, &mut buffer);
         assert_buffer_eq!(

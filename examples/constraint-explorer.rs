@@ -521,6 +521,11 @@ impl SpacerBlock {
             vertical_right: " ",
             horizontal_top: " ",
             horizontal_bottom: " ",
+            vertical_t_left: " ",
+            vertical_t_right: " ",
+            horizontal_t_down: " ",
+            horizontal_t_up: " ",
+            cross: " ",
         };
         Block::bordered()
             .border_set(corners_only)
