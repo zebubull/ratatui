@@ -1665,4 +1665,333 @@ mod tests {
             ])
         );
     }
+
+    #[test]
+    fn render_merged_plain_border() {
+        let mut buffer = Buffer::empty(Rect::new(0, 0, 15, 5));
+        let block1_area = Rect::new(0, 0, 10, 5);
+        let block2_area = Rect::new(10, 0, 5, 3);
+        let block3_area = Rect::new(10, 3, 5, 2);
+        Block::default()
+            .borders(Borders::ALL)
+            .border_type(BorderType::Plain)
+            .render(block1_area, &mut buffer);
+        Block::default()
+            .borders(Borders::ALL)
+            .border_type(BorderType::Plain)
+            .merge_with(Borders::LEFT)
+            .render(block2_area, &mut buffer);
+        Block::default()
+            .borders(Borders::ALL)
+            .border_type(BorderType::Plain)
+            .merge_with(Borders::LEFT | Borders::TOP)
+            .render(block3_area, &mut buffer);
+        assert_buffer_eq!(
+            buffer,
+            Buffer::with_lines(vec![
+                "┌────────┬────┐",
+                "│        │    │",
+                "│        ├────┤",
+                "│        │    │",
+                "└────────┴────┘"
+            ])
+        );
+    }
+
+    #[test]
+    fn render_merged_rounded_border() {
+        let mut buffer = Buffer::empty(Rect::new(0, 0, 15, 5));
+        let block1_area = Rect::new(0, 0, 10, 5);
+        let block2_area = Rect::new(10, 0, 5, 3);
+        let block3_area = Rect::new(10, 3, 5, 2);
+        Block::default()
+            .borders(Borders::ALL)
+            .border_type(BorderType::Rounded)
+            .render(block1_area, &mut buffer);
+        Block::default()
+            .borders(Borders::ALL)
+            .border_type(BorderType::Rounded)
+            .merge_with(Borders::LEFT)
+            .render(block2_area, &mut buffer);
+        Block::default()
+            .borders(Borders::ALL)
+            .border_type(BorderType::Rounded)
+            .merge_with(Borders::TOP | Borders::LEFT)
+            .render(block3_area, &mut buffer);
+        assert_buffer_eq!(
+            buffer,
+            Buffer::with_lines(vec![
+                "╭────────┬────╮",
+                "│        │    │",
+                "│        ├────┤",
+                "│        │    │",
+                "╰────────┴────╯"
+            ])
+        );
+    }
+
+    #[test]
+    fn render_merged_solid_border() {
+        let mut buffer = Buffer::empty(Rect::new(0, 0, 15, 5));
+        let block1_area = Rect::new(0, 0, 10, 5);
+        let block2_area = Rect::new(10, 0, 5, 3);
+        let block3_area = Rect::new(10, 3, 5, 2);
+        Block::default()
+            .borders(Borders::ALL)
+            .border_type(BorderType::Thick)
+            .render(block1_area, &mut buffer);
+        Block::default()
+            .borders(Borders::ALL)
+            .border_type(BorderType::Thick)
+            .merge_with(Borders::LEFT)
+            .render(block2_area, &mut buffer);
+        Block::default()
+            .borders(Borders::ALL)
+            .border_type(BorderType::Thick)
+            .merge_with(Borders::TOP | Borders::LEFT)
+            .render(block3_area, &mut buffer);
+        assert_buffer_eq!(
+            buffer,
+            Buffer::with_lines(vec![
+                "┏━━━━━━━━┳━━━━┓",
+                "┃        ┃    ┃",
+                "┃        ┣━━━━┫",
+                "┃        ┃    ┃",
+                "┗━━━━━━━━┻━━━━┛",
+            ])
+        );
+    }
+
+    #[test]
+    fn render_merged_double_border() {
+        let mut buffer = Buffer::empty(Rect::new(0, 0, 15, 5));
+        let block1_area = Rect::new(0, 0, 10, 5);
+        let block2_area = Rect::new(10, 0, 5, 3);
+        let block3_area = Rect::new(10, 3, 5, 2);
+        Block::default()
+            .borders(Borders::ALL)
+            .border_type(BorderType::Double)
+            .render(block1_area, &mut buffer);
+        Block::default()
+            .borders(Borders::ALL)
+            .border_type(BorderType::Double)
+            .merge_with(Borders::LEFT)
+            .render(block2_area, &mut buffer);
+        Block::default()
+            .borders(Borders::ALL)
+            .border_type(BorderType::Double)
+            .merge_with(Borders::TOP | Borders::LEFT)
+            .render(block3_area, &mut buffer);
+        assert_buffer_eq!(
+            buffer,
+            Buffer::with_lines(vec![
+                "╔════════╦════╗",
+                "║        ║    ║",
+                "║        ╠════╣",
+                "║        ║    ║",
+                "╚════════╩════╝",
+            ])
+        );
+    }
+
+    #[test]
+    fn render_merged_quadrant_outside() {
+        let mut buffer = Buffer::empty(Rect::new(0, 0, 15, 5));
+        let block1_area = Rect::new(0, 0, 10, 5);
+        let block2_area = Rect::new(10, 0, 5, 3);
+        let block3_area = Rect::new(10, 3, 5, 2);
+        Block::default()
+            .borders(Borders::ALL)
+            .border_type(BorderType::QuadrantOutside)
+            .render(block1_area, &mut buffer);
+        Block::default()
+            .borders(Borders::ALL)
+            .border_type(BorderType::QuadrantOutside)
+            .merge_with(Borders::LEFT)
+            .render(block2_area, &mut buffer);
+        Block::default()
+            .borders(Borders::ALL)
+            .border_type(BorderType::QuadrantOutside)
+            .merge_with(Borders::TOP | Borders::LEFT)
+            .render(block3_area, &mut buffer);
+        assert_buffer_eq!(
+            buffer,
+            Buffer::with_lines(vec![
+                "▛▀▀▀▀▀▀▀▀█▀▀▀▀▜",
+                "▌        ▐    ▐",
+                "▌        █▄▄▄▄█",
+                "▌        ▐    ▐",
+                "▙▄▄▄▄▄▄▄▄█▄▄▄▄▟",
+            ])
+        );
+    }
+
+    #[test]
+    fn render_merged_quadrant_inside() {
+        let mut buffer = Buffer::empty(Rect::new(0, 0, 15, 5));
+        let block1_area = Rect::new(0, 0, 10, 5);
+        let block2_area = Rect::new(10, 0, 5, 3);
+        let block3_area = Rect::new(10, 3, 5, 2);
+        Block::default()
+            .borders(Borders::ALL)
+            .border_type(BorderType::QuadrantInside)
+            .render(block1_area, &mut buffer);
+        Block::default()
+            .borders(Borders::ALL)
+            .border_type(BorderType::QuadrantInside)
+            .merge_with(Borders::LEFT)
+            .render(block2_area, &mut buffer);
+        Block::default()
+            .borders(Borders::ALL)
+            .border_type(BorderType::QuadrantInside)
+            .merge_with(Borders::TOP | Borders::LEFT)
+            .render(block3_area, &mut buffer);
+        assert_buffer_eq!(
+            buffer,
+            Buffer::with_lines(vec![
+                "▗▄▄▄▄▄▄▄▄█▄▄▄▄▖",
+                "▐        ▌    ▌",
+                "▐        █▀▀▀▀█",
+                "▐        ▌    ▌",
+                "▝▀▀▀▀▀▀▀▀█▀▀▀▀▘",
+            ])
+        );
+    }
+
+    #[test]
+    fn render_merged_with_cross() {
+        let mut buffer = Buffer::empty(Rect::new(0, 0, 15, 5));
+        let block1_area = Rect::new(0, 0, 10, 3);
+        let block2_area = Rect::new(0, 3, 10, 2);
+        let block3_area = Rect::new(10, 0, 5, 3);
+        let block4_area = Rect::new(10, 3, 5, 2);
+        Block::default()
+            .borders(Borders::ALL)
+            .border_type(BorderType::Plain)
+            .render(block1_area, &mut buffer);
+        Block::default()
+            .borders(Borders::ALL)
+            .border_type(BorderType::Plain)
+            .merge_with(Borders::TOP)
+            .render(block2_area, &mut buffer);
+        Block::default()
+            .borders(Borders::ALL)
+            .border_type(BorderType::Plain)
+            .merge_with(Borders::LEFT)
+            .render(block3_area, &mut buffer);
+        Block::default()
+            .borders(Borders::ALL)
+            .border_type(BorderType::Plain)
+            .merge_with(Borders::LEFT | Borders::TOP)
+            .render(block4_area, &mut buffer);
+        assert_buffer_eq!(
+            buffer,
+            Buffer::with_lines(vec![
+                "┌────────┬────┐",
+                "│        │    │",
+                "├────────┼────┤",
+                "│        │    │",
+                "└────────┴────┘"
+            ])
+        );
+    }
+
+    #[test]
+    fn render_merged_custom_set() {
+        let mut buffer = Buffer::empty(Rect::new(0, 0, 15, 5));
+        let block1_area = Rect::new(0, 0, 10, 3);
+        let block2_area = Rect::new(0, 3, 10, 2);
+        let block3_area = Rect::new(10, 0, 5, 3);
+        let block4_area = Rect::new(10, 3, 5, 2);
+        let set = border::Set {
+            top_left: "1",
+            top_right: "2",
+            bottom_left: "3",
+            bottom_right: "4",
+            vertical_left: "L",
+            vertical_right: "R",
+            horizontal_top: "T",
+            horizontal_bottom: "B",
+            vertical_t_left: "<",
+            vertical_t_right: ">",
+            horizontal_t_down: "v",
+            horizontal_t_up: "^",
+            cross: "C",
+        };
+        Block::default()
+            .borders(Borders::ALL)
+            .border_set(set)
+            .render(block1_area, &mut buffer);
+        Block::default()
+            .borders(Borders::ALL)
+            .border_set(set)
+            .merge_with(Borders::TOP)
+            .render(block2_area, &mut buffer);
+        Block::default()
+            .borders(Borders::ALL)
+            .border_set(set)
+            .merge_with(Borders::LEFT)
+            .render(block3_area, &mut buffer);
+        Block::default()
+            .borders(Borders::ALL)
+            .border_set(set)
+            .merge_with(Borders::LEFT | Borders::TOP)
+            .render(block4_area, &mut buffer);
+        assert_buffer_eq!(
+            buffer,
+            Buffer::with_lines(vec![
+                "1TTTTTTTTvTTTT2",
+                "L        R    R",
+                ">BBBBBBBBCBBBB<",
+                "L        R    R",
+                "3BBBBBBBB^BBBB4"
+            ])
+        );
+    }
+
+    #[test]
+    fn render_merged_with_title() {
+        let mut buffer = Buffer::empty(Rect::new(0, 0, 15, 5));
+        let block1_area = Rect::new(0, 0, 10, 3);
+        let block2_area = Rect::new(0, 3, 10, 2);
+        let block3_area = Rect::new(10, 0, 5, 3);
+        let block4_area = Rect::new(10, 3, 5, 2);
+        Block::default()
+            .borders(Borders::ALL)
+            .border_type(BorderType::Plain)
+            .title(
+                Title::from("^1")
+                    .position(Position::Bottom)
+                    .alignment(Alignment::Right),
+            )
+            .render(block1_area, &mut buffer);
+        Block::default()
+            .borders(Borders::ALL)
+            .border_type(BorderType::Plain)
+            .merge_with(Borders::TOP)
+            .title("2")
+            .render(block2_area, &mut buffer);
+        Block::default()
+            .borders(Borders::ALL)
+            .border_type(BorderType::Plain)
+            .merge_with(Borders::LEFT)
+            .title("3")
+            .render(block3_area, &mut buffer);
+        Block::default()
+            .borders(Borders::ALL)
+            .border_type(BorderType::Plain)
+            .title("4")
+            .merge_with(Borders::LEFT | Borders::TOP)
+            .render(block4_area, &mut buffer);
+        assert_buffer_eq!(
+            buffer,
+            Buffer::with_lines(vec![
+                "┌────────┬3───┐",
+                "│        │    │",
+                "├2─────^1┼4───┤",
+                "│        │    │",
+                "└────────┴────┘"
+            ])
+        );
+    }
 }
