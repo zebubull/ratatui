@@ -523,18 +523,23 @@ impl<'a> Block<'a> {
     /// ```
     pub fn inner(&self, area: Rect) -> Rect {
         let mut inner = area;
-        if self.borders.intersects(Borders::LEFT) {
+        if self.borders.intersects(Borders::LEFT) && !self.merge_borders.intersects(Borders::LEFT) {
             inner.x = inner.x.saturating_add(1).min(inner.right());
             inner.width = inner.width.saturating_sub(1);
         }
-        if self.borders.intersects(Borders::TOP) || self.have_title_at_position(Position::Top) {
+        if (self.borders.intersects(Borders::TOP) || self.have_title_at_position(Position::Top))
+            && !self.merge_borders.intersects(Borders::TOP)
+        {
             inner.y = inner.y.saturating_add(1).min(inner.bottom());
             inner.height = inner.height.saturating_sub(1);
         }
-        if self.borders.intersects(Borders::RIGHT) {
+        if self.borders.intersects(Borders::RIGHT) && !self.merge_borders.intersects(Borders::RIGHT)
+        {
             inner.width = inner.width.saturating_sub(1);
         }
-        if self.borders.intersects(Borders::BOTTOM) || self.have_title_at_position(Position::Bottom)
+        if (self.borders.intersects(Borders::BOTTOM)
+            || self.have_title_at_position(Position::Bottom))
+            && !self.merge_borders.intersects(Borders::BOTTOM)
         {
             inner.height = inner.height.saturating_sub(1);
         }
@@ -763,14 +768,14 @@ impl Block<'_> {
         // If we are merging this corner, then instead of drawing the default corner,
         // fuse the two corners into a t-piece or cross. If merging and the corner is
         // not a border (i.e. it is a scrollbar arrow) then do not draw the corner.
-        let merge_targets = self
+        let corner_borders_to_merge = self
             .merge_borders
             .intersection(Borders::RIGHT | Borders::BOTTOM);
-        if !merge_targets.is_empty() {
+        if !corner_borders_to_merge.is_empty() {
             let corner_cell = buf.get_mut(area.right() - 1, area.bottom() - 1);
             let current_parts = self.border_set.line_parts_from_symbol(corner_cell.symbol());
             if let Some(current_parts) = current_parts {
-                let target_parts = current_parts | LineParts::from(merge_targets);
+                let target_parts = current_parts | LineParts::from(corner_borders_to_merge);
                 corner_cell
                     .set_symbol(self.border_set.symbol_from_line_parts(target_parts))
                     .set_style(self.border_style);
@@ -783,14 +788,14 @@ impl Block<'_> {
     }
 
     fn render_top_right_corner(&self, buf: &mut Buffer, area: Rect) {
-        let merge_targets = self
+        let corner_borders_to_merge = self
             .merge_borders
             .intersection(Borders::RIGHT | Borders::TOP);
-        if !merge_targets.is_empty() {
+        if !corner_borders_to_merge.is_empty() {
             let corner_cell = buf.get_mut(area.right() - 1, area.top());
             let current_parts = self.border_set.line_parts_from_symbol(corner_cell.symbol());
             if let Some(current_parts) = current_parts {
-                let target_parts = current_parts | LineParts::from(merge_targets);
+                let target_parts = current_parts | LineParts::from(corner_borders_to_merge);
                 corner_cell
                     .set_symbol(self.border_set.symbol_from_line_parts(target_parts))
                     .set_style(self.border_style);
@@ -803,14 +808,14 @@ impl Block<'_> {
     }
 
     fn render_bottom_left_corner(&self, buf: &mut Buffer, area: Rect) {
-        let merge_targets = self
+        let corner_borders_to_merge = self
             .merge_borders
             .intersection(Borders::LEFT | Borders::BOTTOM);
-        if !merge_targets.is_empty() {
+        if !corner_borders_to_merge.is_empty() {
             let corner_cell = buf.get_mut(area.left(), area.bottom() - 1);
             let current_parts = self.border_set.line_parts_from_symbol(corner_cell.symbol());
             if let Some(current_parts) = current_parts {
-                let target_parts = current_parts | LineParts::from(merge_targets);
+                let target_parts = current_parts | LineParts::from(corner_borders_to_merge);
                 corner_cell
                     .set_symbol(self.border_set.symbol_from_line_parts(target_parts))
                     .set_style(self.border_style);
@@ -823,14 +828,14 @@ impl Block<'_> {
     }
 
     fn render_top_left_corner(&self, buf: &mut Buffer, area: Rect) {
-        let merge_targets = self
+        let corner_borders_to_merge = self
             .merge_borders
             .intersection(Borders::LEFT | Borders::TOP);
-        if !merge_targets.is_empty() {
+        if !corner_borders_to_merge.is_empty() {
             let corner_cell = buf.get_mut(area.left(), area.top());
             let current_parts = self.border_set.line_parts_from_symbol(corner_cell.symbol());
             if let Some(current_parts) = current_parts {
-                let target_parts = current_parts | LineParts::from(merge_targets);
+                let target_parts = current_parts | LineParts::from(corner_borders_to_merge);
                 corner_cell
                     .set_symbol(self.border_set.symbol_from_line_parts(target_parts))
                     .set_style(self.border_style);
@@ -1195,6 +1200,45 @@ mod tests {
             .title(Title::from("Test").position(Position::Bottom))
             .borders(Borders::BOTTOM);
         assert_eq!(bot_bot.inner(test_rect), Rect::new(0, 0, 0, 1));
+    }
+
+    #[test]
+    fn inner_takes_into_account_merge() {
+        let test_rect = Rect::new(1, 1, 5, 5);
+        assert_eq!(
+            Block::bordered().merge_with(Borders::LEFT).inner(test_rect),
+            Rect::new(1, 2, 4, 3)
+        );
+        assert_eq!(
+            Block::bordered().merge_with(Borders::TOP).inner(test_rect),
+            Rect::new(2, 1, 3, 4)
+        );
+        assert_eq!(
+            Block::bordered()
+                .merge_with(Borders::TOP)
+                .title("Test")
+                .inner(test_rect),
+            Rect::new(2, 1, 3, 4)
+        );
+        assert_eq!(
+            Block::bordered()
+                .merge_with(Borders::RIGHT)
+                .inner(test_rect),
+            Rect::new(2, 2, 4, 3)
+        );
+        assert_eq!(
+            Block::bordered()
+                .merge_with(Borders::BOTTOM)
+                .inner(test_rect),
+            Rect::new(2, 2, 3, 4)
+        );
+        assert_eq!(
+            Block::bordered()
+                .merge_with(Borders::BOTTOM)
+                .title("Test")
+                .inner(test_rect),
+            Rect::new(2, 2, 3, 4)
+        );
     }
 
     #[test]
