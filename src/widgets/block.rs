@@ -8,15 +8,18 @@
 use itertools::Itertools;
 use strum::{Display, EnumString};
 
-use crate::{prelude::*, symbols::border, widgets::Borders};
+use crate::{
+    buffer::Cell,
+    prelude::*,
+    symbols::border::{self, LineParts},
+    widgets::Borders,
+};
 
 mod padding;
 pub mod title;
 
 pub use padding::Padding;
 pub use title::{Position, Title};
-
-use self::symbols::border::LineParts;
 
 /// Base widget to be used to display a box border around all [upper level ones](crate::widgets).
 ///
@@ -627,7 +630,7 @@ impl Widget for Block<'_> {
 
 impl WidgetRef for Block<'_> {
     fn render_ref(&self, area: Rect, buf: &mut Buffer) {
-        let area = self.calculate_rect_with_merges(area).intersection(buf.area);
+        let area = self.compensate_area_rect(area).intersection(buf.area);
         if area.is_empty() {
             return;
         }
@@ -671,7 +674,7 @@ impl Block<'_> {
     ///
     /// This will grow the rect towards any merged borders to reclaim the space gained
     /// from not having to draw those borders.
-    fn calculate_rect_with_merges(&self, area: Rect) -> Rect {
+    fn compensate_area_rect(&self, area: Rect) -> Rect {
         let mut rect = area;
         if self.merge_borders.intersects(Borders::LEFT) {
             rect.x = rect.x.saturating_sub(1);
@@ -693,7 +696,7 @@ impl Block<'_> {
     /// Compensate for vertical merging borders in the rect for border drawing.
     ///
     /// This should be done to the rect used to draw the left and right borders to ensure that
-    /// merging will not overwrite any existing scrollbars.
+    /// the existing corner will not be rendered over and can be properly merged.
     fn calculate_vertical_border_rect(&self, area: Rect) -> Rect {
         let mut rect = area;
         if self.merge_borders.intersects(Borders::TOP) {
@@ -709,7 +712,7 @@ impl Block<'_> {
     /// Compensate for horizontal merging borders in the rect for border drawing.
     ///
     /// This should be done to the rect used to draw the top and bottom borders to ensure that
-    /// merging will not overwrite any existing scrollbars.
+    /// the existing corner will not be rendered over and can be properly merged.
     fn calculate_horizontal_border_rect(&self, area: Rect) -> Rect {
         let mut rect = area;
         if self.merge_borders.intersects(Borders::LEFT) {
@@ -764,84 +767,85 @@ impl Block<'_> {
         }
     }
 
+    fn render_merged_corner(&self, cell: &mut Cell, borders_to_merge: Borders) -> bool {
+        if borders_to_merge.is_empty() {
+            return false;
+        }
+
+        let current_parts = self.border_set.line_parts_from_symbol(cell.symbol());
+        if current_parts.is_none() {
+            return false;
+        }
+
+        let target_parts = current_parts.unwrap() | LineParts::from(borders_to_merge);
+        let corner_symbol = self.border_set.symbol_from_line_parts(target_parts);
+        cell.set_symbol(corner_symbol).set_style(self.border_style);
+        true
+    }
+
     fn render_bottom_right_corner(&self, buf: &mut Buffer, area: Rect) {
-        // If we are merging this corner, then instead of drawing the default corner,
-        // fuse the two corners into a t-piece or cross. If merging and the corner is
-        // not a border (i.e. it is a scrollbar arrow) then do not draw the corner.
-        let corner_borders_to_merge = self
+        let corner_cell = buf.get_mut(area.right() - 1, area.bottom() - 1);
+        let borders_to_merge = self
             .merge_borders
             .intersection(Borders::RIGHT | Borders::BOTTOM);
-        if !corner_borders_to_merge.is_empty() {
-            let corner_cell = buf.get_mut(area.right() - 1, area.bottom() - 1);
-            let current_parts = self.border_set.line_parts_from_symbol(corner_cell.symbol());
-            if let Some(current_parts) = current_parts {
-                let target_parts = current_parts | LineParts::from(corner_borders_to_merge);
-                corner_cell
-                    .set_symbol(self.border_set.symbol_from_line_parts(target_parts))
-                    .set_style(self.border_style);
-            }
-        } else if self.borders.contains(Borders::RIGHT | Borders::BOTTOM) {
-            buf.get_mut(area.right() - 1, area.bottom() - 1)
+
+        if self.render_merged_corner(corner_cell, borders_to_merge) {
+            return;
+        }
+
+        if self.borders.contains(Borders::RIGHT | Borders::BOTTOM) {
+            corner_cell
                 .set_symbol(self.border_set.bottom_right)
                 .set_style(self.border_style);
         }
     }
 
     fn render_top_right_corner(&self, buf: &mut Buffer, area: Rect) {
-        let corner_borders_to_merge = self
+        let corner_cell = buf.get_mut(area.right() - 1, area.top());
+        let borders_to_merge = self
             .merge_borders
             .intersection(Borders::RIGHT | Borders::TOP);
-        if !corner_borders_to_merge.is_empty() {
-            let corner_cell = buf.get_mut(area.right() - 1, area.top());
-            let current_parts = self.border_set.line_parts_from_symbol(corner_cell.symbol());
-            if let Some(current_parts) = current_parts {
-                let target_parts = current_parts | LineParts::from(corner_borders_to_merge);
-                corner_cell
-                    .set_symbol(self.border_set.symbol_from_line_parts(target_parts))
-                    .set_style(self.border_style);
-            }
-        } else if self.borders.contains(Borders::RIGHT | Borders::TOP) {
-            buf.get_mut(area.right() - 1, area.top())
+
+        if self.render_merged_corner(corner_cell, borders_to_merge) {
+            return;
+        }
+
+        if self.borders.contains(Borders::RIGHT | Borders::TOP) {
+            corner_cell
                 .set_symbol(self.border_set.top_right)
                 .set_style(self.border_style);
         }
     }
 
     fn render_bottom_left_corner(&self, buf: &mut Buffer, area: Rect) {
-        let corner_borders_to_merge = self
+        let corner_cell = buf.get_mut(area.left(), area.bottom() - 1);
+        let borders_to_merge = self
             .merge_borders
             .intersection(Borders::LEFT | Borders::BOTTOM);
-        if !corner_borders_to_merge.is_empty() {
-            let corner_cell = buf.get_mut(area.left(), area.bottom() - 1);
-            let current_parts = self.border_set.line_parts_from_symbol(corner_cell.symbol());
-            if let Some(current_parts) = current_parts {
-                let target_parts = current_parts | LineParts::from(corner_borders_to_merge);
-                corner_cell
-                    .set_symbol(self.border_set.symbol_from_line_parts(target_parts))
-                    .set_style(self.border_style);
-            }
-        } else if self.borders.contains(Borders::LEFT | Borders::BOTTOM) {
-            buf.get_mut(area.left(), area.bottom() - 1)
+
+        if self.render_merged_corner(corner_cell, borders_to_merge) {
+            return;
+        }
+
+        if self.borders.contains(Borders::LEFT | Borders::BOTTOM) {
+            corner_cell
                 .set_symbol(self.border_set.bottom_left)
                 .set_style(self.border_style);
         }
     }
 
     fn render_top_left_corner(&self, buf: &mut Buffer, area: Rect) {
-        let corner_borders_to_merge = self
+        let corner_cell = buf.get_mut(area.left(), area.top());
+        let borders_to_merge = self
             .merge_borders
             .intersection(Borders::LEFT | Borders::TOP);
-        if !corner_borders_to_merge.is_empty() {
-            let corner_cell = buf.get_mut(area.left(), area.top());
-            let current_parts = self.border_set.line_parts_from_symbol(corner_cell.symbol());
-            if let Some(current_parts) = current_parts {
-                let target_parts = current_parts | LineParts::from(corner_borders_to_merge);
-                corner_cell
-                    .set_symbol(self.border_set.symbol_from_line_parts(target_parts))
-                    .set_style(self.border_style);
-            }
-        } else if self.borders.contains(Borders::LEFT | Borders::TOP) {
-            buf.get_mut(area.left(), area.top())
+
+        if self.render_merged_corner(corner_cell, borders_to_merge) {
+            return;
+        }
+
+        if self.borders.contains(Borders::LEFT | Borders::TOP) {
+            corner_cell
                 .set_symbol(self.border_set.top_left)
                 .set_style(self.border_style);
         }
